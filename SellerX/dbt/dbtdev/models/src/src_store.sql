@@ -1,0 +1,23 @@
+{{
+  config(
+    materialized = 'ephemeral'
+    )
+}}
+
+WITH raw_store AS (
+    SELECT
+        *
+    FROM
+        SELLERX.RAW.RAW_STORE
+)
+SELECT
+    ID AS STORE_ID,
+	NAME AS STORE_NAME,
+	CUSTOMER_ID AS STORE_CUSTOMER_ID,
+    ADDRESS AS STORE_ADDRESS,
+	CITY AS STORE_CITY,
+	COUNTRY STORE_COUNTRY,
+	TYPOLOGY AS STORE_TYPOLOGY,
+	CREATED_AT	
+FROM
+    raw_store

@@ -1,0 +1,47 @@
+(venv) C:\SellerX\dbt>cd dbtdev
+
+(venv) C:\SellerX\dbt\dbtdev>dbt debug
+16:42:11  Running with dbt=1.10.3
+16:42:11  dbt version: 1.10.3
+16:42:11  python version: 3.12.5
+16:42:11  python path: C:\SellerX\venv\Scripts\python.exe
+16:42:11  os info: Windows-11-10.0.26100-SP0
+16:42:11  Using profiles dir at C:\Users\Marvin Jayson\.dbt
+16:42:11  Using profiles.yml file at C:\Users\Marvin Jayson\.dbt\profiles.yml
+16:42:11  Using dbt_project.yml file at C:\SellerX\dbt\dbtdev\dbt_project.yml
+16:42:11  adapter type: snowflake
+16:42:11  adapter version: 1.9.0
+16:42:11  Configuration:
+16:42:11    profiles.yml file [OK found and valid]
+16:42:11    dbt_project.yml file [OK found and valid]
+16:42:11  Required dependencies:
+16:42:11   - git [OK found]
+
+16:42:11  Connection:
+16:42:11    account: tfduihr-jt10313
+16:42:11    user: dbt
+16:42:11    database: SELLERX
+16:42:11    warehouse: COMPUTE_WH
+16:42:11    role: transform
+16:42:11    schema: DEV
+16:42:11    authenticator: None
+16:42:11    oauth_client_id: None
+16:42:11    query_tag: None
+16:42:11    client_session_keep_alive: False
+16:42:11    host: None
+16:42:11    port: None
+16:42:11    proxy_host: None
+16:42:11    proxy_port: None
+16:42:11    protocol: None
+16:42:11    connect_retries: 1
+16:42:11    connect_timeout: None
+16:42:11    retry_on_database_errors: False
+16:42:11    retry_all: False
+16:42:11    insecure_mode: False
+16:42:11    reuse_connections: True
+16:42:11  Registered adapter: snowflake=1.9.0
+16:42:17    Connection test: [OK connection ok]
+
+16:42:17  All checks passed!
+
+(venv) C:\SellerX\dbt\dbtdev>

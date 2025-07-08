@@ -1,0 +1,40 @@
+(venv) C:\SellerX\dbt>dbt init dbtdev
+16:33:59  Running with dbt=1.10.3
+16:33:59
+Your new dbt project "dbtdev" was created!
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don't hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+
+16:33:59  Setting up your profile.
+Which database would you like to use?
+[1] snowflake
+
+(Don't see the one you want? https://docs.getdbt.com/docs/available-adapters)
+
+Enter a number: 1
+account (https://<this_value>.snowflakecomputing.com): tfduihr-jt10313
+user (dev username): dbt
+[1] password
+[2] keypair
+[3] sso
+Desired authentication type option (enter a number): 1
+password (dev password):
+role (dev role): transform
+warehouse (warehouse name): COMPUTE_WH
+database (default database that dbt will build objects in): SELLERX
+schema (default schema that dbt will build objects in): DEV
+threads (1 or more) [1]: 1
+16:39:13  Profile dbtdev written to C:\Users\Marvin Jayson\.dbt\profiles.yml using target's profile_template.yml and your supplied values. Run 'dbt debug' to validate the connection.
+
+(venv) C:\SellerX\dbt>

@@ -1,0 +1,144 @@
+version: 2
+
+models:
+  - name: src_transactions
+    description: Raw transactions data sourced from SELLERX.RAW.RAW_TRANSACTIONS.
+    columns:
+      - name: transactions_id
+        description: Unique identifier for the transaction.
+      - name: transactions_device_id
+        description: Foreign key referencing the device used in the transaction.
+      - name: transactions_product_name
+        description: Product name.
+      - name: transactions_product_sku
+        description: Product SKU.
+      - name: transactions_product_name2
+        description: Alternate product name.
+      - name: transactions_amount
+        description: Monetary amount of the transaction.
+      - name: transactions_status
+        description: Status of the transaction (e.g., ACCEPTED).
+      - name: transactions_card_number
+        description: Card number used in the transaction.
+      - name: transactions_cvv
+        description: Card CVV used in the transaction.
+      - name: created_at
+        description: Timestamp when transaction was created.
+      - name: happened_at
+        description: Timestamp when transaction occurred.
+
+  - name: src_store
+    description: Raw store data sourced from SELLERX.RAW.RAW_STORE.
+    columns:
+      - name: store_id
+        description: Unique identifier for the store.
+      - name: store_name
+        description: Name of the store.
+      - name: store_customer_id
+        description: Customer ID associated with the store.
+      - name: store_address
+        description: Physical address of the store.
+      - name: store_city
+        description: City where the store is located.
+      - name: store_country
+        description: Country where the store is located.
+      - name: store_typology
+        description: Store classification or type.
+      - name: created_at
+        description: Timestamp when the store was created.
+
+  - name: src_device
+    description: Raw device data sourced from SELLERX.RAW.RAW_DEVICE.
+    columns:
+      - name: device_id
+        description: Unique identifier for the device.
+      - name: device_type
+        description: Numeric identifier for the type of device.
+      - name: store_id
+        description: Foreign key referencing the associated store.
+
+  - name: dim_store
+    description: Dimension table for store details.
+    columns:
+      - name: store_id
+        description: Store identifier.
+      - name: store_name
+        description: Name of the store.
+      - name: store_customer_id
+        description: Customer identifier.
+      - name: store_address
+        description: Address of the store.
+      - name: store_city
+        description: City where the store is located.
+      - name: store_country
+        description: Country where the store is located.
+      - name: store_typology
+        description: Classification of store type.
+      - name: created_at
+        description: Timestamp when store record was created.
+
+  - name: dim_device
+    description: Dimension table for device details.
+    columns:
+      - name: device_id
+        description: Unique device ID.
+      - name: device_type
+        description: Numeric representation of device type.
+      - name: store_id
+        description: ID of the store the device belongs to.
+
+  - name: fct_transactions
+    description: Fact table for accepted transactions only.
+    columns:
+      - name: transactions_id
+        description: Unique transaction ID.
+      - name: transactions_device_id
+        description: Device ID used in transaction.
+      - name: transactions_product_name2
+        description: Second product name field.
+      - name: transactions_amount
+        description: Accepted transaction amount.
+      - name: transactions_status
+        description: Status of transaction (accepted).
+
+  - name: master_device_store_transactions
+    description: Master model joining all transaction, store, and device data with KPIs.
+    columns:
+      - name: transactions_id
+        description: Transaction ID.
+      - name: transactions_product_name
+        description: Product name.
+      - name: transactions_product_name2
+        description: Alternate product name.
+      - name: transactions_product_sku
+        description: Product SKU.
+      - name: transactions_amount
+        description: Amount of transaction.
+      - name: transactions_status
+        description: Status of the transaction.
+      - name: device_id
+        description: Device used in the transaction.
+      - name: device_type
+        description: Type of device.
+      - name: device_transaction_percent
+        description: Percentage share of this device type.
+      - name: store_name
+        description: Name of the store.
+      - name: store_country
+        description: Store's country.
+      - name: store_typology
+        description: Typology of the store.
+      - name: store_address
+        description: Address of the store.
+      - name: store_city
+        description: City of the store.
+      - name: store_customer_id
+        description: Customer ID tied to store.
+      - name: total_transacted_amount
+        description: Total amount transacted at the store.
+      - name: avg_transaction_amount
+        description: Average transaction amount per store.
+      - name: product2_sold_count
+        description: Number of times the product was sold.
+      - name: hours_to_5_transactions
+        description: Hours it took to perform first 5 accepted transactions at the store.

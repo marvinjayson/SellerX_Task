@@ -1,0 +1,55 @@
+USE ROLE ACCOUNTADMIN;
+USE WAREHOUSE COMPUTE_WH;
+USE DATABASE SELLERX;
+USE SCHEMA SELLERX.DEV;
+
+WITH device AS (
+    SELECT
+        DEVICE_ID,
+        STORE_ID
+    FROM
+        DIM_DEVICE
+),
+
+store AS (
+    SELECT
+        STORE_ID,
+        STORE_NAME
+    FROM
+        DIM_STORE
+),
+
+transaction AS (
+    SELECT
+        TRANSACTIONS_DEVICE_ID,
+        TRANSACTIONS_AMOUNT,
+        TRANSACTIONS_STATUS
+    FROM
+        FCT_TRANSACTIONS
+    WHERE
+    1=1
+    AND TRANSACTIONS_STATUS = 'accepted'  -- Only include successful transactions
+),
+
+store_sales AS (
+    SELECT
+        s.STORE_ID,
+        s.STORE_NAME,
+        SUM(t.TRANSACTIONS_AMOUNT) AS TOTAL_TRANSACTED_AMOUNT
+    FROM
+        transaction t
+    JOIN device d ON t.TRANSACTIONS_DEVICE_ID = d.DEVICE_ID
+    JOIN store s ON d.STORE_ID = s.STORE_ID
+    GROUP BY
+        s.STORE_ID, s.STORE_NAME
+)
+
+SELECT
+    STORE_ID,
+    STORE_NAME,
+    TOTAL_TRANSACTED_AMOUNT
+FROM
+    store_sales
+ORDER BY
+    TOTAL_TRANSACTED_AMOUNT DESC
+LIMIT 10;
