@@ -1,6 +1,6 @@
 # SellerX Task Table Architecture
 
-<img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
+<img width="1200" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
 
 
 ## Snowflake user creation
@@ -268,7 +268,7 @@ WHERE CREATED_AT > (SELECT MAX(CREATED_AT) FROM {{ this }})
 ### Fct Trasactions
 `models/fct/fct_transactions.sql`:
 
-```sql{{
+```sql
 {{
   config(
     materialized = 'incremental'
@@ -294,7 +294,7 @@ WHERE CREATED_AT > (SELECT MAX(CREATED_AT) FROM {{ this }})
 
 `models/mart/master_device_store_transactions.sql`:
 
-```sql{{
+```sql
 {{
   config(
     materialized = 'table'
@@ -473,6 +473,4 @@ There are 1 unused configuration paths:
 (venv) C:\SellerX_Task\SellerX\dbt\dbtdev>
 
 ```
-# Definitions of Each Table Type (Materialization) in dbt:
-
-<img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
+<img width="1200" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/table.png">
