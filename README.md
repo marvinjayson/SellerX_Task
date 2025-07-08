@@ -1,4 +1,4 @@
-# Introduction and Environment Setup
+# SellerX Task Table Architecture
 
 <img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
 
