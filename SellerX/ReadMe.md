@@ -1,19 +1,12 @@
-# Introduction and Environment Setup
+# SellerX Task Table Architecture
 
-## How to figure out my Snowflake Account URL?
-The easiest is to take a look at your Snowflake Registration email and copy the string before `.snowflakecomputing.com`. In my case this is `frgcsyo-ie17820`. Keep in mind that sometimes urls include the `.aws` tag, too, such as `frgcsyo-ie17820.aws`. This isn't simple, I know. Even _dbt Labs_ [has it's own section](https://docs.getdbt.com/docs/cloud/connect-data-platform/connect-snowflake) on how to figure it out.
-
-<img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/user-attachments/assets/54faccde-5b57-413d-8e7c-2d5bbea5585a">
-
-## Fast track the Snowflake Setup
-If you want to skip the manual user creation and raw table import, we've created an auto-importer for you. 
-Take a look at https://dbt-data-importer.streamlit.app/ where we set up Snowflake for you with a click of a button!
+<img width="1200" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
 
 
 ## Snowflake user creation
 Copy these SQL statements into a Snowflake Worksheet, select all and execute them (i.e. pressing the play button).
 
-If you see a _Grant partially executed: privileges [REFERENCE_USAGE] not granted._ message when you execute `GRANT ALL ON DATABASE AIRBNB to ROLE transform`, that's just an info message and you can ignore it. 
+If you see a _Grant partially executed: privileges [REFERENCE_USAGE] not granted._ message when you execute `GRANT ALL ON DATABASE SELLERX to ROLE transform`, that's just an info message and you can ignore it. 
 
 ```sql {#snowflake_setup}
 -- Use an admin role
@@ -34,84 +27,86 @@ CREATE USER IF NOT EXISTS dbt
   MUST_CHANGE_PASSWORD=FALSE
   DEFAULT_WAREHOUSE='COMPUTE_WH'
   DEFAULT_ROLE=TRANSFORM
-  DEFAULT_NAMESPACE='AIRBNB.RAW'
+  DEFAULT_NAMESPACE='SELLERX.RAW'
   COMMENT='DBT user used for data transformation';
 ALTER USER dbt SET TYPE = LEGACY_SERVICE;
 GRANT ROLE TRANSFORM to USER dbt;
 
 -- Create our database and schemas
-CREATE DATABASE IF NOT EXISTS AIRBNB;
-CREATE SCHEMA IF NOT EXISTS AIRBNB.RAW;
+CREATE DATABASE IF NOT EXISTS SELLERX;
+CREATE SCHEMA IF NOT EXISTS SELLERX.RAW;
 
 -- Set up permissions to role `transform`
-GRANT ALL ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM; 
-GRANT ALL ON DATABASE AIRBNB to ROLE TRANSFORM;
-GRANT ALL ON ALL SCHEMAS IN DATABASE AIRBNB to ROLE TRANSFORM;
-GRANT ALL ON FUTURE SCHEMAS IN DATABASE AIRBNB to ROLE TRANSFORM;
-GRANT ALL ON ALL TABLES IN SCHEMA AIRBNB.RAW to ROLE TRANSFORM;
-GRANT ALL ON FUTURE TABLES IN SCHEMA AIRBNB.RAW to ROLE TRANSFORM;
+GRANT ALL ON WAREHOUSE COMPUTE_WH TO ROLE TRANSFORM;
+GRANT ALL ON DATABASE SELLERX to ROLE TRANSFORM;
+GRANT ALL ON ALL SCHEMAS IN DATABASE SELLERX to ROLE TRANSFORM;
+GRANT ALL ON FUTURE SCHEMAS IN DATABASE SELLERX to ROLE TRANSFORM;
+GRANT ALL ON ALL TABLES IN SCHEMA SELLERX.RAW to ROLE TRANSFORM;
+GRANT ALL ON FUTURE TABLES IN SCHEMA SELLERX.RAW to ROLE TRANSFORM;
+
+CREATE SCHEMA IF NOT EXISTS SELLERX.STAGE;
+CREATE STAGE IF NOT EXISTS SELLERX.STAGE.DEVICE_STAGE;
+CREATE STAGE IF NOT EXISTS SELLERX.STAGE.STORE_STAGE;
+CREATE STAGE IF NOT EXISTS SELLERX.STAGE.TRANSACTION_STAGE;
 ```
 
-## Snowflake data import
+## Snowflake data upload
 
 Copy these SQL statements into a Snowflake Worksheet, select all and execute them (i.e. pressing the play button).
 
-```sql {#snowflake_import}
--- Set up the defaults
+```sql {#snowflake_stages}
+
+USE ROLE ACCOUNTADMIN;
 USE WAREHOUSE COMPUTE_WH;
-USE DATABASE airbnb;
-USE SCHEMA RAW;
+USE DATABASE SELLERX;
+USE SCHEMA SELLERX.RAW;
 
--- Create our three tables and import the data from S3
-CREATE OR REPLACE TABLE raw_listings
-                    (id integer,
-                     listing_url string,
-                     name string,
-                     room_type string,
-                     minimum_nights integer,
-                     host_id integer,
-                     price string,
-                     created_at datetime,
-                     updated_at datetime);
-                    
-COPY INTO raw_listings (id,
-                        listing_url,
-                        name,
-                        room_type,
-                        minimum_nights,
-                        host_id,
-                        price,
-                        created_at,
-                        updated_at)
-                   from 's3://dbtlearn/listings.csv'
-                    FILE_FORMAT = (type = 'CSV' skip_header = 1
-                    FIELD_OPTIONALLY_ENCLOSED_BY = '"');
-                    
+CREATE TABLE IF NOT EXISTS SELLERX.RAW.RAW_STORE (
+    ID           STRING,
+    NAME         STRING,
+    ADDRESS      STRING,
+    CITY         STRING,
+    COUNTRY      STRING,
+    CREATED_AT   TIMESTAMP_NTZ,
+    TYPOLOGY     STRING,
+    CUSTOMER_ID  STRING
+);
 
-CREATE OR REPLACE TABLE raw_reviews
-                    (listing_id integer,
-                     date datetime,
-                     reviewer_name string,
-                     comments string,
-                     sentiment string);
-                    
-COPY INTO raw_reviews (listing_id, date, reviewer_name, comments, sentiment)
-                   from 's3://dbtlearn/reviews.csv'
-                    FILE_FORMAT = (type = 'CSV' skip_header = 1
-                    FIELD_OPTIONALLY_ENCLOSED_BY = '"');
-                    
+CREATE TABLE IF NOT EXISTS SELLERX.RAW.RAW_TRANSACTIONS (
+    ID             STRING,
+    DEVICE_ID      STRING,
+    PRODUCT_NAME   STRING,
+    PRODUCT_SKU    STRING,
+    AMOUNT         NUMBER(18, 2),
+    STATUS         STRING,
+    CARD_NUMBER    STRING,
+    CVV            STRING,
+    CREATED_AT     TIMESTAMP_NTZ,
+    HAPPENED_AT    TIMESTAMP_NTZ
+);
 
-CREATE OR REPLACE TABLE raw_hosts
-                    (id integer,
-                     name string,
-                     is_superhost string,
-                     created_at datetime,
-                     updated_at datetime);
-                    
-COPY INTO raw_hosts (id, name, is_superhost, created_at, updated_at)
-                   from 's3://dbtlearn/hosts.csv'
-                    FILE_FORMAT = (type = 'CSV' skip_header = 1
-                    FIELD_OPTIONALLY_ENCLOSED_BY = '"');
+CREATE TABLE IF NOT EXISTS SELLERX.RAW.RAW_DEVICE (
+    ID        STRING,
+    TYPE      STRING,
+    STORE_ID  STRING
+);
+
+COPY INTO SELLERX.RAW.RAW_DEVICE
+FROM @SELLERX.STAGE.DEVICE_STAGE/device.csv
+FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1)
+FORCE = TRUE;
+
+COPY INTO SELLERX.RAW.RAW_TRANSACTIONS
+FROM @SELLERX.STAGE.TRANSACTION_STAGE/transaction.csv
+FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1)
+FORCE = TRUE;
+
+
+COPY INTO SELLERX.RAW.RAW_STORE
+FROM @SELLERX.STAGE.STORE_STAGE/store.csv
+FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1)
+ON_ERROR = 'CONTINUE'
+FORCE = TRUE;
 ```
 
 # Python and Virtualenv setup, and dbt installation - Windows
@@ -124,888 +119,358 @@ This is the Python installer you want to use:
 Please make sure that you work with Python 3.11 as newer versions of python might not be compatible with some of the dbt packages.
 
 ## Virtualenv setup
-Here are the commands we executed in this lesson:
+Here are the commands i executed in this task:
 ```
-cd Desktop
-mkdir course
-cd course
 
+C:\SellerX_Task>
+dir SellerX_Task
+cd SellerX
 virtualenv venv
 venv\Scripts\activate
 ```
 
-# Virtualenv setup and dbt installation - Mac
-
-## iTerm2
-We suggest you to use _iTerm2_ instead of the built-in Terminal application.
-
-https://iterm2.com/
-
-## Homebrew
-Homebrew is a widely popular application manager for the Mac. This is what we use in the class for installing a virtualenv.
-
-https://brew.sh/
-
 ## dbt installation
 
-Here are the commands we execute in this lesson:
+Here are the commands i execute in this task:
 
-```sh
-mkdir course
-cd course
-virtualenv venv
-. venv/bin/activate
+```cmd or vscode terminal
+
 pip install dbt-snowflake==1.9.0
-#On Linux/Mac: which dbt
-```
 
-## dbt setup
-Initialize the dbt profiles folder on Mac/Linux:
-```sh
-mkdir ~/.dbt
 ```
-
-Initialize the dbt profiles folder on Windows:
-```sh
-mkdir %userprofile%\.dbt
-```
-
-Create a dbt project (all platforms):
-```sh
-dbt init dbtlearn
-```
-
 # Models
-## Code used in the lesson
-
-### SRC Listings 
-`models/src/src_listings.sql`:
-
-```sql
-WITH raw_listings AS (
-    SELECT
-        *
-    FROM
-        AIRBNB.RAW.RAW_LISTINGS
-)
-SELECT
-    id AS listing_id,
-    name AS listing_name,
-    listing_url,
-    room_type,
-    minimum_nights,
-    host_id,
-    price AS price_str,
-    created_at,
-    updated_at
-FROM
-    raw_listings
-
-```
-
-### SRC Reviews
-`models/src/src_reviews.sql`:
-
-```sql
-WITH raw_reviews AS (
-    SELECT
-        *
-    FROM
-        AIRBNB.RAW.RAW_REVIEWS
-)
-SELECT
-    listing_id,
-    date AS review_date,
-    reviewer_name,
-    comments AS review_text,
-    sentiment AS review_sentiment
-FROM
-    raw_reviews
-```
-
-
-## Exercise
-
-Create a model which builds on top of our `raw_hosts` table. 
-
-1) Call the model `models/src/src_hosts.sql`
-2) Use a CTE (common table expression) to define an alias called `raw_hosts`. This CTE select every column from the raw hosts table `AIRBNB.RAW.RAW_HOSTS`
-3) In your final `SELECT`, select every column and record from `raw_hosts` and rename the following columns:
-   * `id` to `host_id`
-   * `name` to `host_name` 
-
-### Solution
-
-```sql
-WITH raw_hosts AS (
-    SELECT
-        *
-    FROM
-       AIRBNB.RAW.RAW_HOSTS
-)
-SELECT
-    id AS host_id,
-    NAME AS host_name,
-    is_superhost,
-    created_at,
-    updated_at
-FROM
-    raw_hosts
-```
-
-# Models
-## Code used in the lesson
-
-### DIM Listings 
-`models/dim/dim_listings_cleansed.sql`:
-
-```sql
-WITH src_listings AS (
-  SELECT
-    *
-  FROM
-    {{ ref('src_listings') }}
-)
-SELECT
-  listing_id,
-  listing_name,
-  room_type,
-  CASE
-    WHEN minimum_nights = 0 THEN 1
-    ELSE minimum_nights
-  END AS minimum_nights,
-  host_id,
-  REPLACE(
-    price_str,
-    '$'
-  ) :: NUMBER(
-    10,
-    2
-  ) AS price,
-  created_at,
-  updated_at
-FROM
-  src_listings
-```
-
-### DIM hosts
-`models/dim/dim_hosts_cleansed.sql`:
+### SRC Device 
+`models/src/src_device.sql`:
 
 ```sql
 {{
   config(
-    materialized = 'view'
+    materialized = 'ephemeral'
     )
 }}
 
-WITH src_hosts AS (
+WITH raw_device AS (
     SELECT
         *
     FROM
-        {{ ref('src_hosts') }}
+        SELLERX.RAW.RAW_DEVICE
 )
 SELECT
-    host_id,
-    NVL(
-        host_name,
-        'Anonymous'
-    ) AS host_name,
-    is_superhost,
-    created_at,
-    updated_at
+    ID AS DEVICE_ID,
+	TYPE AS DEVICE_TYPE,
+	STORE_ID
+
 FROM
-    src_hosts
+    raw_device
+
 ```
 
-## Exercise
-
-Create a new model in the `models/dim/` folder called `dim_hosts_cleansed.sql`.
- * Use a CTE to reference the `src_hosts` model
- * SELECT every column and every record, and add a cleansing step to host_name:
-   * If host_name is not null, keep the original value 
-   * If host_name is null, replace it with the value ‘Anonymous’
-   * Use the NVL(column_name, default_null_value) function 
-Execute `dbt run` and verify that your model has been created 
-
-
-### Solution
+### SRC Store
+`models/src/src_store.sql`:
 
 ```sql
-WITH src_hosts AS (
+{{
+  config(
+    materialized = 'ephemeral'
+    )
+}}
+
+WITH raw_store AS (
     SELECT
         *
     FROM
-        {{ ref('src_hosts') }}
+        SELLERX.RAW.RAW_STORE
 )
 SELECT
-    host_id,
-    NVL(
-        host_name,
-        'Anonymous'
-    ) AS host_name,
-    is_superhost,
-    created_at,
-    updated_at
+    ID AS STORE_ID,
+	NAME AS STORE_NAME,
+	CUSTOMER_ID AS STORE_CUSTOMER_ID,
+    ADDRESS AS STORE_ADDRESS,
+	CITY AS STORE_CITY,
+	COUNTRY STORE_COUNTRY,
+	TYPOLOGY AS STORE_TYPOLOGY,
+	CREATED_AT	
 FROM
-    src_hosts
+    raw_store
 ```
 
-## Incremental Models
-The `fct/fct_reviews.sql` model:
+### SRC Transactions
+`models/src/src_transactions.sql`:
+
+```sql
+{{
+  config(
+    materialized = 'ephemeral'
+    )
+}}
+
+WITH raw_transactions AS (
+    SELECT
+        *
+    FROM
+        SELLERX.RAW.RAW_TRANSACTIONS
+)
+SELECT
+    ID AS TRANSACTIONS_ID,
+	DEVICE_ID AS TRANSACTIONS_DEVICE_ID,
+	PRODUCT_NAME AS TRANSACTIONS_PRODUCT_NAME,
+	PRODUCT_SKU AS TRANSACTIONS_PRODUCT_SKU,
+	PRODUCT_NAME2 AS TRANSACTIONS_PRODUCT_NAME2,
+	AMOUNT AS TRANSACTIONS_AMOUNT,
+	STATUS AS TRANSACTIONS_STATUS,
+	CARD_NUMBER AS TRANSACTIONS_CARD_NUMBER,
+	CVV AS TRANSACTIONS_CVV,
+	CREATED_AT,
+	HAPPENED_AT	
+FROM
+    raw_transactions
+```
+### DIM Device
+`models/dim/dim_device.sql`:
+
 ```sql
 {{
   config(
     materialized = 'incremental',
-    on_schema_change='fail'
+    unique_key = 'DEVICE_ID'
+  )
+}}
+
+SELECT
+    DEVICE_ID,
+    DEVICE_TYPE,
+    STORE_ID
+FROM {{ ref('src_device') }}
+
+```
+### DIM Store
+`models/dim/dim_store.sql`:
+
+```sql
+{{
+  config(
+    materialized = 'incremental'
     )
 }}
-WITH src_reviews AS (
-  SELECT * FROM {{ ref('src_reviews') }}
-)
-SELECT * FROM src_reviews
-WHERE review_text is not null
 
-{% if is_incremental() %}
-  AND review_date > (select max(review_date) from {{ this }})
-{% endif %}
-```
-
-Get every review for listing _3176_:
-```sql
-SELECT * FROM "AIRBNB"."DEV"."FCT_REVIEWS" WHERE listing_id=3176;
-```
-
-Add a new record to the table:
-```sql
-INSERT INTO "AIRBNB"."RAW"."RAW_REVIEWS"
-VALUES (3176, CURRENT_TIMESTAMP(), 'Zoltan', 'excellent stay!', 'positive');
-
-```
-
-Making a full-refresh:
-```
-dbt run --full-refresh
-```
-## DIM listings with hosts
-The contents of `dim/dim_listings_w_hosts.sql`:
-```sql
-WITH
-l AS (
+WITH src_store AS (
     SELECT
         *
     FROM
-        {{ ref('dim_listings_cleansed') }}
-),
-h AS (
+        {{ ref('src_store') }}
+)
+SELECT * 
+FROM src_store
+{% if is_incremental() %}
+WHERE CREATED_AT > (SELECT MAX(CREATED_AT) FROM {{ this }})
+{% endif %}
+```
+### Fct Trasactions
+`models/fct/fct_transactions.sql`:
+
+```sql
+{{
+  config(
+    materialized = 'incremental'
+  )
+}}
+
+WITH src_transactions AS (
     SELECT * 
-    FROM {{ ref('dim_hosts_cleansed') }}
+    FROM {{ ref('src_transactions') }}
 )
-
-SELECT 
-    l.listing_id,
-    l.listing_name,
-    l.room_type,
-    l.minimum_nights,
-    l.price,
-    l.host_id,
-    h.host_name,
-    h.is_superhost as host_is_superhost,
-    l.created_at,
-    GREATEST(l.updated_at, h.updated_at) as updated_at
-FROM l
-LEFT JOIN h ON (h.host_id = l.host_id)
+SELECT * 
+FROM src_transactions
+{% if is_incremental() %}
+WHERE CREATED_AT > (SELECT MAX(CREATED_AT) FROM {{ this }})
+{% endif %}
 ```
+# DataMart as my final model to meet this criteria:
+## • Top 10 stores per transacted amount
+## • Top 10 products sold
+## • Average transacted amount per store typology and country
+## • Percentage of transactions per device type
+## • Average time for a store to perform its 5 first transactions
 
-## Dropping the views after ephemeral materialization
+`models/mart/master_device_store_transactions.sql`:
+
 ```sql
-DROP VIEW AIRBNB.DEV.SRC_HOSTS;
-DROP VIEW AIRBNB.DEV.SRC_LISTINGS;
-DROP VIEW AIRBNB.DEV.SRC_REVIEWS;
-```
+{{
+  config(
+    materialized = 'table'
+  )
+}}
 
-# Sources and Seeds
-
-## Full Moon Dates CSV
-Download the CSV from the lesson's _Resources_ section, or download it from the following S3 location:
-https://dbtlearn.s3.us-east-2.amazonaws.com/seed_full_moon_dates.csv
-
-Then place it to the `seeds` folder
-
-If you download from S3 on a Mac/Linux, can you import the csv straight to your seed folder by executing this command:
-```sh
-curl https://dbtlearn.s3.us-east-2.amazonaws.com/seed_full_moon_dates.csv -o seeds/seed_full_moon_dates.csv
-```
-
-## Contents of models/sources.yml
-```yaml
-version: 2
-
-sources:
-  - name: airbnb
-    schema: raw
-    tables:
-      - name: listings
-        identifier: raw_listings
-
-      - name: hosts
-        identifier: raw_hosts
-
-      - name: reviews
-        identifier: raw_reviews
-        loaded_at_field: date
-        freshness:
-          warn_after: {count: 1, period: hour}
-          error_after: {count: 24, period: hour}
-```
-
-## Contents of models/mart/full_moon_reviews.sql
-```sql
-{{ config(
-  materialized = 'table',
-) }}
-
-WITH fct_reviews AS (
-    SELECT * FROM {{ ref('fct_reviews') }}
+WITH fct_transactions AS (
+    SELECT *
+    FROM {{ ref('fct_transactions') }}
+    WHERE TRANSACTIONS_STATUS = 'accepted'
 ),
-full_moon_dates AS (
-    SELECT * FROM {{ ref('seed_full_moon_dates') }}
+
+dim_device AS (
+    SELECT *
+    FROM {{ ref('dim_device') }}
+),
+
+dim_store AS (
+    SELECT *
+    FROM {{ ref('dim_store') }}
+),
+
+joined_data AS (
+    SELECT
+        FT.*,
+        DD.DEVICE_ID,
+        DD.DEVICE_TYPE,
+        DD.STORE_ID AS DEVICE_STORE_ID,
+        DS.STORE_NAME,
+        DS.STORE_CUSTOMER_ID,
+        DS.STORE_ADDRESS,
+        DS.STORE_CITY,
+        DS.STORE_COUNTRY,
+        DS.STORE_TYPOLOGY,
+        DS.CREATED_AT AS STORE_CREATED_AT,
+        TO_TIMESTAMP(FT.HAPPENED_AT, 'MM/DD/YYYY HH24:MI') AS HAPPENED_AT_TS
+    FROM fct_transactions FT
+    JOIN dim_device DD ON FT.TRANSACTIONS_DEVICE_ID = DD.DEVICE_ID
+    JOIN dim_store DS ON DD.STORE_ID = DS.STORE_ID
+),
+
+store_totals AS (
+    SELECT
+        STORE_NAME,
+        SUM(TRANSACTIONS_AMOUNT) AS TOTAL_TRANSACTED_AMOUNT
+    FROM joined_data
+    GROUP BY STORE_NAME
+),
+
+product2_counts AS (
+    SELECT
+        TRANSACTIONS_PRODUCT_NAME2,
+        COUNT(*) AS PRODUCT2_SOLD_COUNT
+    FROM joined_data
+    GROUP BY TRANSACTIONS_PRODUCT_NAME2
+),
+
+store_avg_amount AS (
+    SELECT
+        STORE_NAME,
+        ROUND(AVG(TRANSACTIONS_AMOUNT), 2) AS AVG_TRANSACTION_AMOUNT
+    FROM joined_data
+    GROUP BY STORE_NAME
+),
+
+device_type_distribution AS (
+    SELECT
+        DEVICE_TYPE,
+        COUNT(*) AS TOTAL_BY_DEVICE,
+        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) AS DEVICE_TRANSACTION_PERCENT
+    FROM joined_data
+    GROUP BY DEVICE_TYPE
+),
+
+ranked_txn AS (
+    SELECT
+        STORE_NAME,
+        HAPPENED_AT_TS,
+        ROW_NUMBER() OVER (PARTITION BY STORE_NAME ORDER BY HAPPENED_AT_TS) AS RN
+    FROM joined_data
+),
+
+first_5_txn AS (
+    SELECT * FROM ranked_txn WHERE RN <= 5
+),
+
+store_time_to_5 AS (
+    SELECT
+        STORE_NAME,
+        ROUND(DATEDIFF('SECOND', MIN(HAPPENED_AT_TS), MAX(HAPPENED_AT_TS)) / 3600.0, 2) AS HOURS_TO_5_TRANSACTIONS
+    FROM first_5_txn
+    GROUP BY STORE_NAME
+    HAVING COUNT(*) = 5
 )
 
 SELECT
-  r.*,
-  CASE
-    WHEN fm.full_moon_date IS NULL THEN 'not full moon'
-    ELSE 'full moon'
-  END AS is_full_moon
-FROM
-  fct_reviews
-  r
-  LEFT JOIN full_moon_dates
-  fm
-  ON (TO_DATE(r.review_date) = DATEADD(DAY, 1, fm.full_moon_date))
+    JD.TRANSACTIONS_ID,
+    JD.TRANSACTIONS_PRODUCT_NAME,
+    JD.TRANSACTIONS_PRODUCT_NAME2,
+    JD.TRANSACTIONS_PRODUCT_SKU,
+    JD.TRANSACTIONS_AMOUNT,
+    JD.TRANSACTIONS_STATUS,
+    JD.TRANSACTIONS_CARD_NUMBER,
+    JD.TRANSACTIONS_CVV,
+    JD.CREATED_AT AS TRANSACTION_CREATED_AT,
+    JD.HAPPENED_AT,
+
+    JD.DEVICE_ID,
+    JD.DEVICE_TYPE,
+    DTD.DEVICE_TRANSACTION_PERCENT,
+
+    JD.STORE_NAME,
+    JD.STORE_COUNTRY,
+    JD.STORE_TYPOLOGY,
+    JD.STORE_ADDRESS,
+    JD.STORE_CITY,
+    JD.STORE_CUSTOMER_ID,
+    JD.STORE_CREATED_AT,
+
+    ST.TOTAL_TRANSACTED_AMOUNT,
+    SA.AVG_TRANSACTION_AMOUNT,
+    PC.PRODUCT2_SOLD_COUNT,
+    STT.HOURS_TO_5_TRANSACTIONS
+
+FROM joined_data JD
+LEFT JOIN store_totals ST ON JD.STORE_NAME = ST.STORE_NAME
+LEFT JOIN store_avg_amount SA ON JD.STORE_NAME = SA.STORE_NAME
+LEFT JOIN product2_counts PC ON JD.TRANSACTIONS_PRODUCT_NAME2 = PC.TRANSACTIONS_PRODUCT_NAME2
+LEFT JOIN device_type_distribution DTD ON JD.DEVICE_TYPE = DTD.DEVICE_TYPE
+LEFT JOIN store_time_to_5 STT ON JD.STORE_NAME = STT.STORE_NAME
 ```
-
-# Snapshots
-
-## Snapshots for listing
-The contents of `snapshots/scd_raw_listings.sql`:
-
-```sql
-{% snapshot scd_raw_listings %}
-
-{{
-   config(
-       target_schema='DEV',
-       unique_key='id',
-       strategy='timestamp',
-       updated_at='updated_at',
-       invalidate_hard_deletes=True
-   )
-}}
-
-select * FROM {{ source('airbnb', 'listings') }}
-
-{% endsnapshot %}
-```
-
-### Updating the table
-```sql
-UPDATE AIRBNB.RAW.RAW_LISTINGS SET MINIMUM_NIGHTS=30,
-    updated_at=CURRENT_TIMESTAMP() WHERE ID=3176;
-
-SELECT * FROM AIRBNB.DEV.SCD_RAW_LISTINGS WHERE ID=3176;
-```
-
-## Snapshots for hosts
-The contents of `snapshots/scd_raw_hosts.sql`:
-```sql
-{% snapshot scd_raw_hosts %}
-
-{{
-   config(
-       target_schema='dev',
-       unique_key='id',
-       strategy='timestamp',
-       updated_at='updated_at',
-       invalidate_hard_deletes=True
-   )
-}}
-
-select * FROM {{ source('airbnb', 'hosts') }}
-
-{% endsnapshot %}
-```
-
-# Tests
-
-## Generic Tests
-The contents of `models/schema.yml`:
-
-```sql
-version: 2
-
-models:
-  - name: dim_listings_cleansed
-    columns:
-
-     - name: listing_id
-       tests:
-         - unique
-         - not_null
-
-     - name: host_id
-       tests:
-         - not_null
-         - relationships:
-             to: ref('dim_hosts_cleansed')
-             field: host_id
-
-     - name: room_type
-       tests:
-         - accepted_values:
-             values: ['Entire home/apt',
-                      'Private room',
-                      'Shared room',
-                      'Hotel room']
-```
-
-### Generic test for minimum nights check
-The contents of `tests/dim_listings_minumum_nights.sql`:
-
-```sql
-SELECT
-    *
-FROM
-    {{ ref('dim_listings_cleansed') }}
-WHERE minimum_nights < 1
-LIMIT 10
+# Use this command in cmd or VsCode Terminal:
 
 ```
+Activate Virtual Environment
+C:\SellerX_Task\SellerX>venv\Scripts\activate
+C:\SellerX_Task\SellerX>()
+(venv) C:\SellerX_Task\SellerX>
 
-### Restricting test execution to a model
-```sh
-dbt test --select dim_listings_cleansed
-```
+Use "cd" command to locate folder for dbt models.
+(venv) C:\SellerX_Task\SellerX>cd dbt
+(venv) C:\SellerX_Task\SellerX\dbt>cd dbtdev
+(venv) C:\SellerX_Task\SellerX\dbt\dbtdev>
 
-## Exercise
+use "dbt run" command to run all the models created
 
-Create a singular test in `tests/consistent_created_at.sql` that checks that there is no review date that is submitted before its listing was created: Make sure that every `review_date` in `fct_reviews` is more recent than the associated `created_at` in `dim_listings_cleansed`.
+(venv) C:\SellerX_Task\SellerX\dbt\dbtdev>dbt run
 
+"The dbt run output should look like this"
 
-### Solution
-```sql
-SELECT * FROM {{ ref('dim_listings_cleansed') }} l
-INNER JOIN {{ ref('fct_reviews') }} r
-USING (listing_id)
-WHERE l.created_at >= r.review_date
-```
-# Marcos, Custom Tests and Packages 
-## Macros
+15:48:47  Running with dbt=1.10.2
+15:48:48  Registered adapter: snowflake=1.9.0
+15:48:49  Unable to do partial parsing because of a version mismatch
+15:48:51  [WARNING]: Configuration paths exist in your dbt_project.yml file which do not apply to any resources.
+There are 1 unused configuration paths:
+- models.dbtdev.example
+15:48:51  Found 7 models, 5 analyses, 586 macros
+15:48:51
+15:48:51  Concurrency: 1 threads (target='dev')
+15:48:51
+15:48:55  1 of 4 START sql incremental model DEV.dim_device .............................. [RUN]
+15:48:59  1 of 4 OK created sql incremental model DEV.dim_device ......................... [SUCCESS 200 in 3.72s]
+15:48:59  2 of 4 START sql incremental model DEV.dim_store ............................... [RUN]
+15:49:00  2 of 4 OK created sql incremental model DEV.dim_store .......................... [SUCCESS 0 in 1.15s]
+15:49:00  3 of 4 START sql incremental model DEV.fct_transactions ........................ [RUN]
+15:49:02  3 of 4 OK created sql incremental model DEV.fct_transactions ................... [SUCCESS 0 in 1.63s]
+15:49:02  4 of 4 START sql table model DEV.master_device_store_transactions .............. [RUN]
+15:49:04  4 of 4 OK created sql table model DEV.master_device_store_transactions ......... [SUCCESS 1 in 1.90s]
+15:49:04
+15:49:04  Finished running 3 incremental models, 1 table model in 0 hours 0 minutes and 13.12 seconds (13.12s).
+15:49:04
+15:49:04  Completed successfully
+15:49:04
+15:49:04  Done. PASS=4 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=4
 
-The contents of `macros/no_nulls_in_columns.sql`:
-```sql
-{% macro no_nulls_in_columns(model) %}
-    SELECT * FROM {{ model }} WHERE
-    {% for col in adapter.get_columns_in_relation(model) -%}
-        {{ col.column }} IS NULL OR
-    {% endfor %}
-    FALSE
-{% endmacro %}
-```
-
-The contents of `tests/no_nulls_in_dim_listings.sql`
-```sql
-{{ no_nulls_in_columns(ref('dim_listings_cleansed')) }}
-```
-
-## Custom Generic Tests
-The contents of `macros/positive_value.sql`
-```sql
-{% test positive_value(model, column_name) %}
-SELECT
-    *
-FROM
-    {{ model }}
-WHERE
-    {{ column_name}} < 1
-{% endtest %}
-```
-
-## Packages
-The contents of `packages.yml`:
-```yaml
-packages:
-  - package: dbt-labs/dbt_utils
-    version: 1.3.0
-```
-
-The contents of ```models/fct_reviews.sql```:
-```
-{{
-  config(
-    materialized = 'incremental',
-    on_schema_change='fail'
-    )
-}}
-WITH src_reviews AS (
-  SELECT * FROM {{ ref('src_reviews') }}
-)
-SELECT 
-  {{ dbt_utils.generate_surrogate_key(['listing_id', 'review_date', 'reviewer_name', 'review_text']) }}
-    AS review_id,
-  * 
-  FROM src_reviews
-WHERE review_text is not null
-{% if is_incremental() %}
-  AND review_date > (select max(review_date) from {{ this }})
-{% endif %}
-```
-
-## Documentation
-
-The `models/schema.yml` after adding the documentation:
-```yaml
-version: 2
-
-models:
-  - name: dim_listings_cleansed
-    description: Cleansed table which contains Airbnb listings.
-    columns:
-      
-      - name: listing_id
-        description: Primary key for the listing
-        tests:
-          - unique
-          - not_null
-        
-      - name: host_id
-        description: The hosts's id. References the host table.
-        tests:
-          - not_null
-          - relationships:
-              to: ref('dim_hosts_cleansed')
-              field: host_id
-
-      - name: room_type
-        description: Type of the apartment / room
-        tests:
-          - accepted_values:
-              values: ['Entire home/apt', 'Private room', 'Shared room', 'Hotel room']
-
-      - name: minimum_nights
-        description: '{{ doc("dim_listing_cleansed__minimum_nights") }}'
-        tests:
-          - positive_value
-
-  - name: dim_hosts_cleansed
-    columns:
-      - name: host_id
-        tests:
-          - not_null
-          - unique
-      
-      - name: host_name
-        tests:
-          - not_null
-      
-      - name: is_superhost
-        tests:
-          - accepted_values:
-              values: ['t', 'f']
-  
-  - name: fct_reviews
-    columns:
-      - name: listing_id
-        tests:
-          - relationships:
-              to: ref('dim_listings_cleansed')
-              field: listing_id
-
-      - name: reviewer_name
-        tests:
-          - not_null
-      
-      - name: review_sentiment
-        tests:
-          - accepted_values:
-              values: ['positive', 'neutral', 'negative']
+(venv) C:\SellerX_Task\SellerX\dbt\dbtdev>
 
 ```
-The contents of `models/docs.md`:
-```txt
-{% docs dim_listing_cleansed__minimum_nights %}
-Minimum number of nights required to rent this property. 
-
-Keep in mind that old listings might have `minimum_nights` set 
-to 0 in the source tables. Our cleansing algorithm updates this to `1`.
-
-{% enddocs %}
-```
-
-The contents of `models/overview.md`:
-```md
-{% docs __overview__ %}
-# Airbnb pipeline
-
-Hey, welcome to our Airbnb pipeline documentation!
-
-Here is the schema of our input data:
-![input schema](https://dbtlearn.s3.us-east-2.amazonaws.com/input_schema.png)
-
-{% enddocs %}
-```
-
-# Analyses, Hooks and Exposures
-
-## Create the REPORTER role and PRESET user in Snowflake
-```sql
-USE ROLE ACCOUNTADMIN;
-CREATE ROLE IF NOT EXISTS REPORTER;
-CREATE USER IF NOT EXISTS PRESET
- PASSWORD='presetPassword123'
- LOGIN_NAME='preset'
- MUST_CHANGE_PASSWORD=FALSE
- DEFAULT_WAREHOUSE='COMPUTE_WH'
- DEFAULT_ROLE=REPORTER
- DEFAULT_NAMESPACE='AIRBNB.DEV'
- COMMENT='Preset user for creating reports';
-
-GRANT ROLE REPORTER TO USER PRESET;
-GRANT ROLE REPORTER TO ROLE ACCOUNTADMIN;
-GRANT ALL ON WAREHOUSE COMPUTE_WH TO ROLE REPORTER;
-GRANT USAGE ON DATABASE AIRBNB TO ROLE REPORTER;
-GRANT USAGE ON SCHEMA AIRBNB.DEV TO ROLE REPORTER;
-
--- We don't want to grant select rights here; we'll do this through hooks:
--- GRANT SELECT ON ALL TABLES IN SCHEMA AIRBNB.DEV TO ROLE REPORTER;
--- GRANT SELECT ON ALL VIEWS IN SCHEMA AIRBNB.DEV TO ROLE REPORTER;
--- GRANT SELECT ON FUTURE TABLES IN SCHEMA AIRBNB.DEV TO ROLE REPORTER;
--- GRANT SELECT ON FUTURE VIEWS IN SCHEMA AIRBNB.DEV TO ROLE REPORTER;
-
-```
-
-## Analyses
-The contents of `analyses/full_moon_no_sleep.sql`:
-```sql
-WITH fullmoon_reviews AS (
-    SELECT * FROM {{ ref('mart_fullmoon_reviews') }}
-)
-SELECT
-    is_full_moon,
-    review_sentiment,
-    COUNT(*) as reviews
-FROM
-    fullmoon_reviews
-GROUP BY
-    is_full_moon,
-    review_sentiment
-ORDER BY
-    is_full_moon,
-    review_sentiment
-```
-## Creating a Dashboard in Preset
-
-Getting the Snowflake credentials up to the screen:
-
-* Mac / Linux / Windows Powershell: `cat ~/.dbt/profiles.yml `
-* Windows (cmd): `type %USERPROFILE%\.dbt\profiles.yml`
-
-## Exposures
-The contents of `models/dashboard.yml`:
-```yaml
-version: 2
-
-exposures:
-  - name: executive_dashboard
-    label: Executive Dashboard
-    type: dashboard
-    maturity: low
-    url: https://00d200da.us1a.app.preset.io/superset/dashboard/x/?edit=true&native_filters_key=fnn_HJZ0z42ZJtoX06x7gRbd9oBFgFLbnPlCW2o_aiBeZJi3bZuyfQuXE96xfgB
-    description: Executive Dashboard about Airbnb listings and hosts
-      
-
-    depends_on:
-      - ref('dim_listings_w_hosts')
-      - ref('mart_fullmoon_reviews')
-
-    owner:
-      name: Zoltan C. Toth
-      email: dbtstudent@gmail.com
-```
-
-## Post-hook
-Add this to your `dbt_project.yml`:
-
-```
-+post-hook:
-      - "GRANT SELECT ON {{ this }} TO ROLE REPORTER"
-```
-
-# Debugging Tests and Testing with dbt-expectations
-
-* The original Great Expectations project on GitHub: https://github.com/great-expectations/great_expectations
-* dbt-expectations: https://github.com/metaplane/dbt-expectations
-
-For the final code in _packages.yml_, _models/schema.yml_ and _models/sources.yml_, please refer to the course's Github repo:
-https://github.com/nordquant/complete-dbt-bootcamp-zero-to-hero
-
-## Testing a single model
-
-```
-dbt test --select dim_listings_w_hosts
-```
-
-Testing individual sources:
-
-```
-dbt test --select source:airbnb.listings
-```
-
-## Debugging dbt
-
-```
-dbt --debug test --select dim_listings_w_hosts
-```
-
-Keep in mind that in the lecture we didn't use the _--debug_ flag after all as taking a look at the compiled sql file is the better way of debugging tests.
-
-### Logging
-
-The contents of `macros/logging.sql`:
-```
-{% macro learn_logging() %}
-    {{ log("Call your mom!") }}
-    {{ log("Call your dad!", info=True) }} --> Logs to the screen, too
---  {{ log("Call your dad!", info=True) }} --> This will be put to the screen
-    {# log("Call your dad!", info=True) #} --> This won't be executed
-{% endmacro %}
-```
-
-Executing the macro: 
-```
-dbt run-operation learn_logging
-```
-
-## Variables
-The contents of `marcos/variables.sql`:
-```
-{% macro learn_variables() %}
-
-    {% set your_name_jinja = "Zoltan" %}
-    {{ log("Hello " ~ your_name_jinja, info=True) }}
-
-    {{ log("Hello dbt user " ~ var("user_name", "NO USERNAME IS SET!!") ~ "!", info=True) }}
-
-    {% if var("in_test", False) %}
-       {{ log("In test", info=True) }}
-    {% else %}
-       {{ log("NOT in test", info=True) }}
-    {% endif %}
-
-{% endmacro %}
-```
-
-We've added the following block to the end of `dbt_project.yml`:
-```
-vars:
-  user_name: default_user_name_for_this_project
-```
-
-An example of passing variables:
-```
-dbt run-operation learn_variables --vars "{user_name: zoltanctoth}"
-```
-
-More information on variable passing: https://docs.getdbt.com/docs/build/project-variables
-
-## dbt Orchestration 
-
-### Links to different orchestrators
-
- * [dbt integrations](https://docs.getdbt.com/docs/deploy/deployment-tools)
- * [Apache Airflow](https://airflow.apache.org/)
- * [Prefect](https://www.prefect.io/)
- * [Prefect dbt Integration](https://www.prefect.io/blog/dbt-and-prefect)
- * [Azure Data Factory](https://azure.microsoft.com/en-us/products/data-factory)
- * [dbt Cloud](https://cloud.getdbt.com/deploy/)
- * [Dagster](https://dagster.io/)
-
-### Dagster
-
-#### Set up your environment
-Let's create a virtualenv and install dbt and dagster. These packages are located in [requirements.txt](requirements.txt).
-```
-virtualenv venv -p python3.11
-pip install -r requirements.txt
-```
-
-#### Create a dagster project
-Dagster has a command for creating a dagster project from an existing dbt project: 
-```
-dagster-dbt project scaffold --project-name my_dbt_dagster_project --dbt-project-dir=dbtlearn
-```
-
-_At this point in the course, open [schedules.py](dbt_dagster_project/dbt_dagster_project/schedules.py) and uncomment the schedule logic._
-
-#### Start dagster
-Now that our project is created, start the Dagster server:
-
-##### On Windows - PowerShell (Like the VSCode Terminal Window)
-```
-cd dbt_dagster_project
-$env:DAGSTER_DBT_PARSE_PROJECT_ON_LOAD = 1
-dagster dev
-```
-
-##### On Windows (Using cmd)
-```
-cd dbt_dagster_project
-setx DAGSTER_DBT_PARSE_PROJECT_ON_LOAD 1
-dagster dev
-```
-
-##### On Linux / Mac
-
-```
-cd dbt_dagster_project
-DAGSTER_DBT_PARSE_PROJECT_ON_LOAD=1 dagster dev
-```
-
-We will continue our work on the dagster UI at [http://localhost:3000/](http://localhost:3000) 
-
-#### Making incremental models compatible with orchestrators:
-The updated contents of `models/fct/fct_reviews.sql`:
-```
-{{
-  config(
-    materialized = 'incremental',
-    on_schema_change='fail'
-    )
-}}
-WITH src_reviews AS (
-  SELECT * FROM {{ ref('src_reviews') }}
-)
-SELECT 
-  {{ dbt_utils.generate_surrogate_key(['listing_id', 'review_date', 'reviewer_name', 'review_text']) }} as review_id,
-  *
-FROM src_reviews
-WHERE review_text is not null
-
-{% if is_incremental() %}
-  {% if var("start_date", False) and var("end_date", False) %}
-    {{ log('Loading ' ~ this ~ ' incrementally (start_date: ' ~ var("start_date") ~ ', end_date: ' ~ var("end_date") ~ ')', info=True) }}
-    AND review_date >= '{{ var("start_date") }}'
-    AND review_date < '{{ var("end_date") }}'
-  {% else %}
-    AND review_date > (select max(review_date) from {{ this }})
-    {{ log('Loading ' ~ this ~ ' incrementally (all missing dates)', info=True)}}
-  {% endif %}
-{% endif %}
-```
-
-Passing a time range to our incremental model:
-```
-dbt run --select fct_reviews  --vars '{start_date: "2024-02-15 00:00:00", end_date: "2024-03-15 23:59:59"}'
-```
-
-Reference - Working with incremental strategies: https://docs.getdbt.com/docs/build/incremental-models#about-incremental_strategy
+<img width="1200" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/table.png">
