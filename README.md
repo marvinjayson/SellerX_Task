@@ -6,7 +6,7 @@
 ## Snowflake user creation
 Copy these SQL statements into a Snowflake Worksheet, select all and execute them (i.e. pressing the play button).
 
-If you see a _Grant partially executed: privileges [REFERENCE_USAGE] not granted._ message when you execute `GRANT ALL ON DATABASE AIRBNB to ROLE transform`, that's just an info message and you can ignore it. 
+If you see a _Grant partially executed: privileges [REFERENCE_USAGE] not granted._ message when you execute `GRANT ALL ON DATABASE SELLERX to ROLE transform`, that's just an info message and you can ignore it. 
 
 ```sql {#snowflake_setup}
 -- Use an admin role
@@ -425,3 +425,54 @@ LEFT JOIN store_avg_amount SA ON JD.STORE_NAME = SA.STORE_NAME
 LEFT JOIN product2_counts PC ON JD.TRANSACTIONS_PRODUCT_NAME2 = PC.TRANSACTIONS_PRODUCT_NAME2
 LEFT JOIN device_type_distribution DTD ON JD.DEVICE_TYPE = DTD.DEVICE_TYPE
 LEFT JOIN store_time_to_5 STT ON JD.STORE_NAME = STT.STORE_NAME
+```
+# Use this command in cmd or VsCode Terminal:
+
+```
+Activate Virtual Environment
+C:\SellerX_Task\SellerX>venv\Scripts\activate
+C:\SellerX_Task\SellerX>()
+(venv) C:\SellerX_Task\SellerX>
+
+Use "cd" command to locate folder for dbt models.
+(venv) C:\SellerX_Task\SellerX>cd dbt
+(venv) C:\SellerX_Task\SellerX\dbt>cd dbtdev
+(venv) C:\SellerX_Task\SellerX\dbt\dbtdev>
+
+use "dbt run" command to run all the models created
+
+(venv) C:\SellerX_Task\SellerX\dbt\dbtdev>dbt run
+
+"The dbt run output should look like this"
+
+15:48:47  Running with dbt=1.10.2
+15:48:48  Registered adapter: snowflake=1.9.0
+15:48:49  Unable to do partial parsing because of a version mismatch
+15:48:51  [WARNING]: Configuration paths exist in your dbt_project.yml file which do not apply to any resources.
+There are 1 unused configuration paths:
+- models.dbtdev.example
+15:48:51  Found 7 models, 5 analyses, 586 macros
+15:48:51
+15:48:51  Concurrency: 1 threads (target='dev')
+15:48:51
+15:48:55  1 of 4 START sql incremental model DEV.dim_device .............................. [RUN]
+15:48:59  1 of 4 OK created sql incremental model DEV.dim_device ......................... [SUCCESS 200 in 3.72s]
+15:48:59  2 of 4 START sql incremental model DEV.dim_store ............................... [RUN]
+15:49:00  2 of 4 OK created sql incremental model DEV.dim_store .......................... [SUCCESS 0 in 1.15s]
+15:49:00  3 of 4 START sql incremental model DEV.fct_transactions ........................ [RUN]
+15:49:02  3 of 4 OK created sql incremental model DEV.fct_transactions ................... [SUCCESS 0 in 1.63s]
+15:49:02  4 of 4 START sql table model DEV.master_device_store_transactions .............. [RUN]
+15:49:04  4 of 4 OK created sql table model DEV.master_device_store_transactions ......... [SUCCESS 1 in 1.90s]
+15:49:04
+15:49:04  Finished running 3 incremental models, 1 table model in 0 hours 0 minutes and 13.12 seconds (13.12s).
+15:49:04
+15:49:04  Completed successfully
+15:49:04
+15:49:04  Done. PASS=4 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=4
+
+(venv) C:\SellerX_Task\SellerX\dbt\dbtdev>
+
+```
+# Definitions of Each Table Type (Materialization) in dbt:
+
+<img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
