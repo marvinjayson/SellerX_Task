@@ -138,7 +138,7 @@ Here are the commands i execute in this task:
 pip install dbt-snowflake==1.9.0
 
 ```
-# Models
+# DBT Models
 ### SRC Device 
 `models/src/src_device.sql`:
 
