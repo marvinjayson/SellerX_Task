@@ -141,7 +141,7 @@ venv\Scripts\activate
 Here are the commands i execute in this task:
 
 ```cmd or vscode terminal
-. venv/bin/activate
+
 pip install dbt-snowflake==1.9.0
 
 ```
@@ -276,6 +276,7 @@ WHERE CREATED_AT > (SELECT MAX(CREATED_AT) FROM {{ this }})
 `models/fct/fct_transactions.sql`:
 
 ```sql{{
+{{
   config(
     materialized = 'incremental'
   )
@@ -290,3 +291,145 @@ FROM src_transactions
 {% if is_incremental() %}
 WHERE CREATED_AT > (SELECT MAX(CREATED_AT) FROM {{ this }})
 {% endif %}
+```
+### DataMart as my final model to meet this criteria:
+
+####• Top 10 stores per transacted amount
+• Top 10 products sold
+• Average transacted amount per store typology and country
+• Percentage of transactions per device type
+• Average time for a store to perform its 5 first transactions
+
+`models/mart/master_device_store_transactions.sql`:
+
+```sql{{
+{{
+  config(
+    materialized = 'table'
+  )
+}}
+
+WITH fct_transactions AS (
+    SELECT *
+    FROM {{ ref('fct_transactions') }}
+    WHERE TRANSACTIONS_STATUS = 'accepted'
+),
+
+dim_device AS (
+    SELECT *
+    FROM {{ ref('dim_device') }}
+),
+
+dim_store AS (
+    SELECT *
+    FROM {{ ref('dim_store') }}
+),
+
+joined_data AS (
+    SELECT
+        FT.*,
+        DD.DEVICE_ID,
+        DD.DEVICE_TYPE,
+        DD.STORE_ID AS DEVICE_STORE_ID,
+        DS.STORE_NAME,
+        DS.STORE_CUSTOMER_ID,
+        DS.STORE_ADDRESS,
+        DS.STORE_CITY,
+        DS.STORE_COUNTRY,
+        DS.STORE_TYPOLOGY,
+        DS.CREATED_AT AS STORE_CREATED_AT,
+        TO_TIMESTAMP(FT.HAPPENED_AT, 'MM/DD/YYYY HH24:MI') AS HAPPENED_AT_TS
+    FROM fct_transactions FT
+    JOIN dim_device DD ON FT.TRANSACTIONS_DEVICE_ID = DD.DEVICE_ID
+    JOIN dim_store DS ON DD.STORE_ID = DS.STORE_ID
+),
+
+store_totals AS (
+    SELECT
+        STORE_NAME,
+        SUM(TRANSACTIONS_AMOUNT) AS TOTAL_TRANSACTED_AMOUNT
+    FROM joined_data
+    GROUP BY STORE_NAME
+),
+
+product2_counts AS (
+    SELECT
+        TRANSACTIONS_PRODUCT_NAME2,
+        COUNT(*) AS PRODUCT2_SOLD_COUNT
+    FROM joined_data
+    GROUP BY TRANSACTIONS_PRODUCT_NAME2
+),
+
+store_avg_amount AS (
+    SELECT
+        STORE_NAME,
+        ROUND(AVG(TRANSACTIONS_AMOUNT), 2) AS AVG_TRANSACTION_AMOUNT
+    FROM joined_data
+    GROUP BY STORE_NAME
+),
+
+device_type_distribution AS (
+    SELECT
+        DEVICE_TYPE,
+        COUNT(*) AS TOTAL_BY_DEVICE,
+        ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) AS DEVICE_TRANSACTION_PERCENT
+    FROM joined_data
+    GROUP BY DEVICE_TYPE
+),
+
+ranked_txn AS (
+    SELECT
+        STORE_NAME,
+        HAPPENED_AT_TS,
+        ROW_NUMBER() OVER (PARTITION BY STORE_NAME ORDER BY HAPPENED_AT_TS) AS RN
+    FROM joined_data
+),
+
+first_5_txn AS (
+    SELECT * FROM ranked_txn WHERE RN <= 5
+),
+
+store_time_to_5 AS (
+    SELECT
+        STORE_NAME,
+        ROUND(DATEDIFF('SECOND', MIN(HAPPENED_AT_TS), MAX(HAPPENED_AT_TS)) / 3600.0, 2) AS HOURS_TO_5_TRANSACTIONS
+    FROM first_5_txn
+    GROUP BY STORE_NAME
+    HAVING COUNT(*) = 5
+)
+
+SELECT
+    JD.TRANSACTIONS_ID,
+    JD.TRANSACTIONS_PRODUCT_NAME,
+    JD.TRANSACTIONS_PRODUCT_NAME2,
+    JD.TRANSACTIONS_PRODUCT_SKU,
+    JD.TRANSACTIONS_AMOUNT,
+    JD.TRANSACTIONS_STATUS,
+    JD.TRANSACTIONS_CARD_NUMBER,
+    JD.TRANSACTIONS_CVV,
+    JD.CREATED_AT AS TRANSACTION_CREATED_AT,
+    JD.HAPPENED_AT,
+
+    JD.DEVICE_ID,
+    JD.DEVICE_TYPE,
+    DTD.DEVICE_TRANSACTION_PERCENT,
+
+    JD.STORE_NAME,
+    JD.STORE_COUNTRY,
+    JD.STORE_TYPOLOGY,
+    JD.STORE_ADDRESS,
+    JD.STORE_CITY,
+    JD.STORE_CUSTOMER_ID,
+    JD.STORE_CREATED_AT,
+
+    ST.TOTAL_TRANSACTED_AMOUNT,
+    SA.AVG_TRANSACTION_AMOUNT,
+    PC.PRODUCT2_SOLD_COUNT,
+    STT.HOURS_TO_5_TRANSACTIONS
+
+FROM joined_data JD
+LEFT JOIN store_totals ST ON JD.STORE_NAME = ST.STORE_NAME
+LEFT JOIN store_avg_amount SA ON JD.STORE_NAME = SA.STORE_NAME
+LEFT JOIN product2_counts PC ON JD.TRANSACTIONS_PRODUCT_NAME2 = PC.TRANSACTIONS_PRODUCT_NAME2
+LEFT JOIN device_type_distribution DTD ON JD.DEVICE_TYPE = DTD.DEVICE_TYPE
+LEFT JOIN store_time_to_5 STT ON JD.STORE_NAME = STT.STORE_NAME
