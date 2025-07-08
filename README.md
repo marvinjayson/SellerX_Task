@@ -1,6 +1,7 @@
 # Introduction and Environment Setup
 
-<img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/user-attachments/assets/54faccde-5b57-413d-8e7c-2d5bbea5585a">
+<img width="980" alt="Screenshot 2024-10-21 at 10 36 03" src="https://github.com/marvinjayson/SellerX_Task/blob/main/SellerX/diagram.png">
+
 
 ## Snowflake user creation
 Copy these SQL statements into a Snowflake Worksheet, select all and execute them (i.e. pressing the play button).
